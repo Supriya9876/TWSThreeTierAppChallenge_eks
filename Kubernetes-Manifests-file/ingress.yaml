@@ -11,8 +11,7 @@ metadata:
 spec:
   ingressClassName: alb
   rules:
-    - host: myapp.clouddev12.shop
-      http:
+    - http:
         paths:
           - path: /ok
             pathType: Prefix
