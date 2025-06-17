@@ -11,7 +11,7 @@ metadata:
 spec:
   ingressClassName: alb
   rules:
-    - host: threetier.2118solutions.info
+    - host: myapp.clouddev12.shop
       http:
         paths:
           - path: /ok
