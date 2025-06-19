@@ -9,7 +9,6 @@ Parameters:
 
 Resources:
   # --- VPC, Subnets, Internet Gateway, Route Tables --- #
-  # (unchanged sections remain the same)
 
   VPC:
     Type: AWS::EC2::VPC
@@ -271,7 +270,14 @@ Resources:
                 Fn::Sub:
                   - "${OIDCProvider}:sub"
                   - { OIDCProvider: !GetAtt EKSOIDCProvider.Provider }
-                : "system:serviceaccount:kube-system:alb-ingress-controller"
+                # INCORRECT - use the corrected version below
+              # Correct version:
+              StringEquals:
+                Fn::Sub:
+                  - {
+                      "${OIDCProvider}:sub": "system:serviceaccount:kube-system:alb-ingress-controller"
+                    }
+                  - { OIDCProvider: !GetAtt EKSOIDCProvider.Provider }
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/AmazonEKSClusterPolicy
         - arn:aws:iam::aws:policy/ElasticLoadBalancingFullAccess
