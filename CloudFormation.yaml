@@ -547,7 +547,7 @@ Resources:
 
 
 # RDS Ingress Rule (from EKS Workers) - Updated for MongoDB
-MongoDBIngressFromEKSWorkers:
+RDSDBIngressFromEKSWorkers:
   Type: AWS::EC2::SecurityGroupIngress
   Properties:
     GroupId: !GetAtt SecurityGroupRDS.GroupId  # Replace with your MongoDB SG if different
