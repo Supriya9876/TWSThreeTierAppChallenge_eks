@@ -1,8 +1,16 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: AWS CloudFormation template to create an EKS Cluster with a single ALB Ingress Controller, MongoDB on ECS Fargate, and necessary networking resources.
+Description: AWS CloudFormation template to create an EKS Cluster with necessary networking and nodegroup
+
+Parameters:
+  EC2EksRoleName:
+    Type: String
+    Description: Name of existing EC2 Role to be used for connecting to EKS nodes
+    Default: ec2eksrole
+  
+
+
 
 Resources:
-
   VPC:
     Type: AWS::EC2::VPC
     Properties:
@@ -178,19 +186,21 @@ Resources:
     Type: AWS::EKS::Cluster
     Properties:
       Name: eks-cluster
-      Version: '1.28'
+      Version: '1.29'
       RoleArn: !GetAtt EKSVPCClusterRole.Arn
       ResourcesVpcConfig:
         SubnetIds:
           - !Ref PrivateSubnet1
           - !Ref PrivateSubnet2
+          - !Ref PrivateSubnet3
+          - !Ref PrivateSubnet4
 
-
+  # Add EC2 role access entry so ec2eksrole is authorized in aws-auth configmap
   EC2KubectlAccessEntry:
     Type: AWS::EKS::AccessEntry
     Properties:
       ClusterName: !Ref EKSCluster
-      PrincipalArn: arn:aws:iam::535002878565:role/ec2eksrole  # Replace with actual EC2 role
+      PrincipalArn: arn:aws:iam::535002878565:role/ec2eksrole  # Replace with your actual AWS Account ID and role if different
       AccessPolicies:
         - Type: RBAC
           Policy:
@@ -205,86 +215,6 @@ Resources:
         - system:masters
       Type: STANDARD
       Username: ec2-admin
-
-
-ClusterAccessEntry:
-    Type: AWS::EKS::AccessEntry
-    Properties:
-      ClusterName: !Ref EKSCluster
-      PrincipalArn: !Ref CodePipelineRoleArn
-      AccessPolicies:
-        - Type: RBAC
-          Policy:
-            Type: INLINE_POLICY
-            InlinePolicy:
-              Version: '2021-10-17'
-              Statement:
-                - Effect: Allow
-                  Action: '*'
-                  Resource: '*'
-      KubernetesGroups:
-        - system:masters
-      Type: STANDARD
-      Username: pipeline-admin
-
-  CreateThreeTierNamespace:
-    Type: Custom::ThreeTierNamespace
-    Properties:
-      ServiceToken: !GetAtt NamespaceLambdaFunction.Arn
-      NamespaceName: three-tier
-
-  NamespaceLambdaFunction:
-    Type: AWS::Lambda::Function
-    Properties:
-      Handler: index.handler
-      Role: !GetAtt NamespaceLambdaExecutionRole.Arn
-      Runtime: python3.12
-      Timeout: 60
-      Code:
-        ZipFile: |
-          import json
-          import boto3
-          import cfnresponse
-          import subprocess
-
-          def handler(event, context):
-              try:
-                  if event['RequestType'] in ['Create', 'Update']:
-                      namespace = event['ResourceProperties']['NamespaceName']
-                      subprocess.run(['kubectl', 'create', 'namespace', namespace], check=True)
-                  cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
-              except Exception as e:
-                  cfnresponse.send(event, context, cfnresponse.FAILED, {'Message': str(e)})
-
-  NamespaceLambdaExecutionRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: lambda.amazonaws.com
-            Action: sts:AssumeRole
-      Policies:
-        - PolicyName: AllowNamespaceCreate
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - eks:DescribeCluster
-                  - eks:ListClusters
-                Resource: '*'
-              - Effect: Allow
-                Action:
-                  - logs:CreateLogGroup
-                  - logs:CreateLogStream
-                  - logs:PutLogEvents
-                Resource: '*'
-
-
-                
 
   EKSNodeGroupRole:
     Type: AWS::IAM::Role
@@ -314,27 +244,41 @@ ClusterAccessEntry:
       Subnets:
         - !Ref PrivateSubnet1
         - !Ref PrivateSubnet2
+        - !Ref PrivateSubnet3
+        - !Ref PrivateSubnet4
       ScalingConfig:
         MinSize: 2
         MaxSize: 2
         DesiredSize: 2
 
 
+  # OIDC Provider for IRSA
+  EKSOIDCProvider:
+    Type: AWS::EKS::OidcIdentityProvider
+    Properties:
+      ClusterName: !Ref EKSCluster
+
+  # Ingress Controller Role with IRSA trust policy
   IngressControllerRole:
     Type: AWS::IAM::Role
     Properties:
+      RoleName: alb-ingress-controller-role
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
           - Effect: Allow
             Principal:
-              Service:
-                - ec2.amazonaws.com
-            Action:
-              - sts:AssumeRole
+              Federated: !Sub "arn:aws:iam::${AWS::AccountId}:oidc-provider/${EKSOIDCProvider.Provider}"
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                !Sub "${EKSOIDCProvider.Provider}:sub": "system:serviceaccount:kube-system:alb-ingress-controller"
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/AmazonEKSClusterPolicy
         - arn:aws:iam::aws:policy/ElasticLoadBalancingFullAccess
+
+
+
 
   ALBSecurityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -347,16 +291,7 @@ ClusterAccessEntry:
           ToPort: 80
           CidrIp: 0.0.0.0/0
 
-  MongoDBSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: Allow MongoDB traffic from EKS Nodes
-      VpcId: !Ref VPC
-      SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: 27017
-          ToPort: 27017
-          CidrIp: 10.0.0.0/16
+
 
   ApplicationLoadBalancer:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
