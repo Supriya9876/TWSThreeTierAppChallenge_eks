@@ -185,6 +185,28 @@ Resources:
           - !Ref PrivateSubnet1
           - !Ref PrivateSubnet2
 
+
+  EC2KubectlAccessEntry:
+    Type: AWS::EKS::AccessEntry
+    Properties:
+      ClusterName: !Ref EKSCluster
+      PrincipalArn: arn:aws:iam::535002878565:role/ec2eksrole  # Replace with actual EC2 role
+      AccessPolicies:
+        - Type: RBAC
+          Policy:
+            Type: INLINE_POLICY
+            InlinePolicy:
+              Version: '2021-10-17'
+              Statement:
+                - Effect: Allow
+                  Action: '*'
+                  Resource: '*'
+      KubernetesGroups:
+        - system:masters
+      Type: STANDARD
+      Username: ec2-admin
+
+
 ClusterAccessEntry:
     Type: AWS::EKS::AccessEntry
     Properties:
@@ -287,13 +309,16 @@ ClusterAccessEntry:
       ClusterName: !Ref EKSCluster
       NodegroupName: eks-node-group
       NodeRole: !GetAtt EKSNodeGroupRole.Arn
+      InstanceTypes:
+        - t2.small
       Subnets:
         - !Ref PrivateSubnet1
         - !Ref PrivateSubnet2
       ScalingConfig:
-        MinSize: 1
+        MinSize: 2
         MaxSize: 2
-        DesiredSize: 1
+        DesiredSize: 2
+
 
   IngressControllerRole:
     Type: AWS::IAM::Role
