@@ -531,8 +531,8 @@ Resources:
     Properties:
       GroupId: !GetAtt SecurityGroupEKSWorkers.GroupId
       IpProtocol: tcp
-      FromPort: 3306 # MySQL/Aurora port
-      ToPort: 3306
+      FromPort: 27017 
+      ToPort: 27017
       DestinationSecurityGroupId: !GetAtt SecurityGroupRDS.GroupId
       Description: Allow outbound to RDS database
   EKSWorkersEgressToInternet:
