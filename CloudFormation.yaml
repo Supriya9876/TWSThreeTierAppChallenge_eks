@@ -6,11 +6,11 @@ Parameters:
     Type: String
     Description: Name of existing EC2 Role to be used for connecting to EKS nodes
     Default: ec2eksrole
-  
-
-
 
 Resources:
+  # --- VPC, Subnets, Internet Gateway, Route Tables --- #
+  # (unchanged sections remain the same)
+
   VPC:
     Type: AWS::EC2::VPC
     Properties:
@@ -195,12 +195,11 @@ Resources:
           - !Ref PrivateSubnet3
           - !Ref PrivateSubnet4
 
-  # Add EC2 role access entry so ec2eksrole is authorized in aws-auth configmap
   EC2KubectlAccessEntry:
     Type: AWS::EKS::AccessEntry
     Properties:
       ClusterName: !Ref EKSCluster
-      PrincipalArn: arn:aws:iam::535002878565:role/ec2eksrole  # Replace with your actual AWS Account ID and role if different
+      PrincipalArn: arn:aws:iam::535002878565:role/ec2eksrole
       AccessPolicies:
         - Type: RBAC
           Policy:
@@ -251,14 +250,11 @@ Resources:
         MaxSize: 2
         DesiredSize: 2
 
-
-  # OIDC Provider for IRSA
   EKSOIDCProvider:
     Type: AWS::EKS::OidcIdentityProvider
     Properties:
       ClusterName: !Ref EKSCluster
 
-  # Ingress Controller Role with IRSA trust policy
   IngressControllerRole:
     Type: AWS::IAM::Role
     Properties:
@@ -272,13 +268,13 @@ Resources:
             Action: sts:AssumeRoleWithWebIdentity
             Condition:
               StringEquals:
-                !Sub "${EKSOIDCProvider.Provider}:sub": "system:serviceaccount:kube-system:alb-ingress-controller"
+                Fn::Sub:
+                  - "${OIDCProvider}:sub"
+                  - { OIDCProvider: !GetAtt EKSOIDCProvider.Provider }
+                : "system:serviceaccount:kube-system:alb-ingress-controller"
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/AmazonEKSClusterPolicy
         - arn:aws:iam::aws:policy/ElasticLoadBalancingFullAccess
-
-
-
 
   ALBSecurityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -291,8 +287,6 @@ Resources:
           ToPort: 80
           CidrIp: 0.0.0.0/0
 
-
-
   ApplicationLoadBalancer:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
@@ -304,7 +298,6 @@ Resources:
         - !Ref ALBSecurityGroup
       Scheme: internet-facing
       Type: application
-
 
 Outputs:
   EKSClusterName:
