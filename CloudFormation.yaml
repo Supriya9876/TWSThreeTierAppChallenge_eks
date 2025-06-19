@@ -253,23 +253,27 @@ Resources:
     Properties:
       ClusterName: !Ref EKSCluster
 
-  IngressControllerRole:
-    Type: AWS::IAM::Role
-    Properties:
-      RoleName: alb-ingress-controller-role
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Principal:
-              Federated: !Sub "arn:aws:iam::${AWS::AccountId}:oidc-provider/${EKSOIDCProvider.Provider}"
-            Action: sts:AssumeRoleWithWebIdentity
-            Condition:
-              StringEquals:
-                Fn::Sub:
-                  - |
-                      ${OIDCProvider}:sub: system:serviceaccount:kube-system:alb-ingress-controller
-                  - { OIDCProvider: !GetAtt EKSOIDCProvider.Provider }
+IngressControllerRole:
+  Type: AWS::IAM::Role
+  Properties:
+    RoleName: alb-ingress-controller-role
+    AssumeRolePolicyDocument:
+      Version: '2012-10-17'
+      Statement:
+        - Effect: Allow
+          Principal:
+            Federated: !Sub "arn:aws:iam::${AWS::AccountId}:oidc-provider/${EKSOIDCProvider.Provider}"
+          Action: sts:AssumeRoleWithWebIdentity
+          Condition:
+            StringEquals:
+              Fn::Sub:
+                - "${OIDCProvider}:sub": "system:serviceaccount:kube-system:alb-ingress-controller"
+                - { OIDCProvider: !GetAtt EKSOIDCProvider.Provider }
+                
+    ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/AmazonEKSClusterPolicy
+      - arn:aws:iam::aws:policy/ElasticLoadBalancingFullAccess
+
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/AmazonEKSClusterPolicy
         - arn:aws:iam::aws:policy/ElasticLoadBalancingFullAccess
