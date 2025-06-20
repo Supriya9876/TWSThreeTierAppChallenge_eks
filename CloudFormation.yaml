@@ -595,3 +595,6 @@ Outputs:
   EKSWorkerSecurityGroupId:
     Description: The Security Group ID for the EKS Worker Nodes.
     Value: !GetAtt SecurityGroupEKSWorkers.GroupId
+  EKSNodegroupRoleArn:
+    Description: ARN of the EKS Nodegroup IAM Role (for aws-auth ConfigMap)
+    Value: !GetAtt MyEKSNodegroupRole.Arn
