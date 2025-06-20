@@ -545,17 +545,16 @@ Resources:
       CidrIp: 0.0.0.0/0
       Description: Allow all outbound internet traffic (via NAT Gateway)
 
-
-# RDS Ingress Rule (from EKS Workers) - Updated for MongoDB
-RDSIngressFromEKSWorkers:
-  Type: AWS::EC2::SecurityGroupIngress
-  Properties:
-    GroupId: !GetAtt SecurityGroupRDS.GroupId  # Replace with your MongoDB SG if different
-    IpProtocol: tcp
-    FromPort: 27017 # Default MongoDB port
-    ToPort: 27017
-    SourceSecurityGroupId: !GetAtt SecurityGroupEKSWorkers.GroupId
-    Description: Allow MongoDB traffic from EKS worker nodes
+  # RDS Ingress Rule (from EKS Workers) - Updated for MongoDB
+  RDSIngressFromEKSWorkers:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !GetAtt SecurityGroupRDS.GroupId
+      IpProtocol: tcp
+      FromPort: 27017
+      ToPort: 27017
+      SourceSecurityGroupId: !GetAtt SecurityGroupEKSWorkers.GroupId
+      Description: Allow MongoDB traffic from EKS worker nodes
 
 
 
